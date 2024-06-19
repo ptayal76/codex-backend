@@ -19,7 +19,10 @@ const { CheckCorsCSP } = require("./corsCSP_functions.js");
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173'  // Allow requests from localhost:5173
+}));
+
 app.use(bodyParser.json());
 
 app.use(express.json());
