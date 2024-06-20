@@ -4,14 +4,13 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
-const { default: cluster } = require("cluster");
 const {
   getAllClusterInfo,
   getFlagDetails,
   createAWSSaasCluster,
   applyPatches,
   applyTSCLICommands,
-  createGCPSaasCluster
+  createGCPSaasCluster,
 } = require("./clusterFunctions.js"); // Replace 'yourFileName' with the actual filename where getAllClusterInfo is defined
 const { startRestApiMetricCollection } = require("./grafana_functions.js");
 const { fetchKibana } = require("./kibana_functions.js");
@@ -19,15 +18,35 @@ const { CheckCorsCSP } = require("./corsCSP_functions.js");
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-let corsOptions = { 
-  origin : ['*'], 
-} 
- 
-app.use(cors(corsOptions)) 
+// app.use(cors());
+// const corsOptions = {
+//   origin: '*', // Adjust this to specify allowed origins
+//   methods: ['GET', 'POST', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization']
+// };
 
-app.use(bodyParser.json());
-
+app.use((req, res, next) => {
+  console.log(req.originalUrl)
+  next(req, res)
+})
+app.use(cors());
+app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+// app.options('*', cors());
+// app.use(bodyParser.json());
+// app.use(function (req, response, next) {
+//   response.setHeader("Access-Control-Allow-Origin", "*");
+//   response.setHeader("Access-Control-Allow-Credentials", "true");
+//   response.setHeader(
+//     "Access-Control-Allow-Methods",
+//     "GET,HEAD,OPTIONS,POST,PUT"
+//   );
+//   response.setHeader(
+//     "Access-Control-Allow-Headers",
+//     "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers"
+//   );
+// });
+// app.use(express.json());
 // const pythonExecutable = "/usr/local/bin/python3"; // Replace with your actual path
 // const pythonExecutable = '/opt/homebrew/bin/python3.11'; // Replace with your actual path
 //const pythonExecutable = '/usr/bin/python3'; // Replace with your actual path
@@ -37,18 +56,34 @@ app.post("/trigger-kibana", async (req, res) => {
   console.log(Cluster_Id);
   console.log(StartTimestamp);
   console.log(EndTimestamp);
-  const kibanaData = await fetchKibana(Cluster_Id, StartTimestamp, EndTimestamp);
+  const kibanaData = await fetchKibana(
+    Cluster_Id,
+    StartTimestamp,
+    EndTimestamp
+  );
   res.json(kibanaData);
   console.log("kibaana data:: ", kibanaData);
 });
 
 app.get("/", (req, res) => {
+  console.log("hi");
+  if (req.method === "OPTIONS") {
+    res.status = 200;
+    res.send();
+  }
   res.json({ message: "Hello from the backend!" });
+});
+
+app.get("/api/v1/emojies", (req, res) => {
+  console.log("hi");
+  res.json({ message: [1,2,3,4] });
 });
 
 app.post("/run-grafana-script", async (req, res) => {
   const { input_start_date, input_end_date, tenantName } = req.body;
-  console.log(req.body);
+  console.log(input_start_date);
+  console.log(input_end_date);
+  console.log(tenantName);
   const metricName = "request_duration_seconds";
   const saasEnv = "staging|prod";
   const apiRegex = ".*";
@@ -240,12 +275,11 @@ app.post("/check-csp-cors-validation", async (req, res) => {
 
   try {
     const response = await CheckCorsCSP(cluster_url, domain);
-    console.log(response)
+    console.log(response);
     res.json(response); // Send the response as JSON
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-
 });
 app.post("/apply-patch", async (req, res) => {
   const { owner_email, cluster_name, patch, env } = req.body;
@@ -288,7 +322,8 @@ app.post("/apply-commands", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+// app.listen(PORT, () => {
+//   console.log(`Server is running on http://localhost:${PORT}`);
+// });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+module.exports = {app};
